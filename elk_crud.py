@@ -134,6 +134,34 @@ def report_aggregation(column,colValue,categoryType):
     print(aggregation_list)
     return {"result":"success","aggregations":aggregation_list}
 
+#Route For Getting The Top 5 Ip Adressess from Given Category Type 
+@app.route("/search/aggregations/<categoryType>/")
+def saddr_aggregation(categoryType):
+    aggregation_query = {
+        "size":0,
+        "query": {
+            "bool" : {
+                "must":[
+                    {
+                    "match": {
+                        "category.keyword": categoryType
+                        }
+                    }
+                ]
+            }
+        },
+        "aggs": {
+            "agg_name": {
+                "terms": {
+                    "field": "saddr.keyword"
+                }
+            }
+        },
+    }
+    aggregation_response =  client.search(index=es_index,body=aggregation_query)
+    aggregation_list = aggregation_response["aggregations"]["agg_name"]["buckets"]
+    return {"result":"success","aggregations":aggregation_list[:5]}
+
 #Route For Bulk Adding csv file To ElasticSearch
 @app.route("/create")
 def bulk_add():
