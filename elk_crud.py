@@ -24,6 +24,7 @@ def hello_world():
     return "<p>Root</p>"
 
 
+#******************** SEARCH COUNT ********************
 #Route For Getting The Query Result Count 
 @app.route("/search/count/<column>/<value>")
 def search_count(column,value):
@@ -44,37 +45,8 @@ def search_count(column,value):
     size = size_response["count"]
     return {"result":"success","count":size_response["count"]}
 
-#Route For Getting The Aggreation Counts From the Query Result 
-@app.route("/search/aggregations/<column>/<value>/<sort>")
-def search_aggregation(column,value,sort):
-    
-    aggregation_query = {
-        "query": {
-            "bool" : {
-                "must":{
-                    "query_string": {
-                        "escape": True,
-                        "fields": [f"{column}.keyword"],
-                        "query": value
-                    }
-                }
-            }
-        },
-        "size":0,
-        "aggs": {
-            "agg_name": {
-                "terms": {
-                    "field": f"{sort}.keyword"
-                }
-            }
-        },
-    }
-    aggregation_response =  client.search(index=es_index,body=aggregation_query)
-    aggregation_list = aggregation_response["aggregations"]["agg_name"]["buckets"]
-    return {"result":"success","aggregations":aggregation_list}
-
-
-#Route For Paginating the Query Results/ Max row to Paginate is 10000
+#******************** SEARCH PAGE ********************
+#Route For Paginating the Query Results/ Max rows to Paginate is 10000
 @app.route("/search/page/<column>/<value>/<pageNumber>")
 def search_page(column,value,pageNumber):
     pageNumber=int(pageNumber)
@@ -99,9 +71,77 @@ def search_page(column,value,pageNumber):
         list = df.to_dict('records')
         return {"result":"success","data":list}
 
+#******************** SEARCH AGGREGATION QUERY ********************
+#Route For Getting The Aggreation Counts From the Query Result 
+@app.route("/search/aggregations/<column>/<value>/<sort>")
+def search_aggregation_query(column,value,sort):
+    
+    aggregation_query = {
+        "query": {
+            "bool" : {
+                "must":{
+                    "query_string": {
+                        "escape": True,
+                        "fields": [f"{column}.keyword"],
+                        "query": value
+                    }
+                }
+            }
+        },
+        "size":0,
+        "aggs": {
+            "agg_name": {
+                "terms": {
+                    "field": f"{sort}.keyword"
+                }
+            }
+        },
+    }
+    aggregation_response =  client.search(index=es_index,body=aggregation_query)
+    aggregation_list = aggregation_response["aggregations"]["agg_name"]["buckets"]
+    if(len(aggregation_list)==0):
+        return {"result":"empty","aggregations":aggregation_list}
+    else:
+        return {"result":"success","aggregations":aggregation_list}
+
+
+#******************** TOTAL SOURCE ADDRESS AGGREGATION  ********************
+#Route For Getting The Top 5 Ip Adressess from Given Category Type 
+@app.route("/search/aggregations/<categoryType>/")
+def total_saddr_aggregation(categoryType):
+    aggregation_query = {
+        "size":0,
+        "query": {
+            "bool" : {
+                "must":[
+                    {
+                    "match": {
+                        "category.keyword": categoryType
+                        }
+                    }
+                ]
+            }
+        },
+        "aggs": {
+            "agg_name": {
+                "terms": {
+                    "field": "saddr.keyword"
+                }
+            }
+        },
+    }
+    aggregation_response =  client.search(index=es_index,body=aggregation_query)
+    aggregation_list = aggregation_response["aggregations"]["agg_name"]["buckets"]
+    if(len(aggregation_list)==0):
+        return {"result":"empty","aggregations":aggregation_list}
+    else:
+        return {"result":"success","aggregations":aggregation_list[:5]}
+
+
+#******************** SOURCE ADDRESS AGGREGATION FROM QUERY ********************
 #Route For Getting The Ip Adressess From Query Result with Given Category Type 
-@app.route("/report/aggregations/<column>/<colValue>/<categoryType>")
-def report_aggregation(column,colValue,categoryType):
+@app.route("/report/get/aggregations/<column>/<colValue>/<categoryType>")
+def get_saddr_from_query(column,colValue,categoryType):
     
     aggregation_query = {
         "query": {
@@ -131,36 +171,126 @@ def report_aggregation(column,colValue,categoryType):
     }
     aggregation_response =  client.search(index=es_index,body=aggregation_query)
     aggregation_list = aggregation_response["aggregations"]["agg_name"]["buckets"]
-    print(aggregation_list)
-    return {"result":"success","aggregations":aggregation_list}
+    if(len(aggregation_list)==0):
+        return {"result":"empty","aggregations":aggregation_list}
+    else:
+        return {"result":"success","aggregations":aggregation_list}
 
-#Route For Getting The Top 5 Ip Adressess from Given Category Type 
-@app.route("/search/aggregations/<categoryType>/")
-def saddr_aggregation(categoryType):
-    aggregation_query = {
-        "size":0,
+
+
+
+@app.route("/search/latesthour/<categoryType>")
+def search_latest_hour_saddr(categoryType):
+    query1={
         "query": {
-            "bool" : {
-                "must":[
-                    {
+            "match_all": {}
+        },
+        "size": 1,
+        "sort": [
+            {
+            "stime.keyword": {
+                "order": "desc"
+            }
+            }
+        ]
+    }
+    
+    response =  client.search(index=es_index,body=query1)
+    latest_row = float(response["hits"]["hits"][0]["_source"]["stime"])
+    #Epoch Time
+    lesserThenValue= str(float(latest_row)).lower()
+    greaterThenValue=  str(float(latest_row)-3600).lower()      
+    query2={
+        "size":0,
+        "query":{
+            "bool":{
+                "must":{
                     "match": {
                         "category.keyword": categoryType
                         }
+                },
+                "filter":[
+                    {"range": {
+                        "stime.keyword": {
+                            "gte": greaterThenValue,
+                            "lte": lesserThenValue
+                            }
+                        }
                     }
-                ]
-            }
+                ],
+            },
+            
         },
-        "aggs": {
-            "agg_name": {
-                "terms": {
-                    "field": "saddr.keyword"
+        "aggs":{
+                "agg_name1":{
+                    "terms":{
+                        "field":"saddr.keyword"
+                    }
+                }
+            }
+
+    }
+    response =  client.search(index=es_index,body=query2)
+    aggregation_list = response["aggregations"]["agg_name1"]["buckets"]
+    if(len(aggregation_list)==0):
+        return {"result":"empty","aggregations":aggregation_list}
+    else:
+        return {"result":"success","aggregations":aggregation_list}
+
+
+@app.route("/search/lasthour/<categoryType>")
+def search_last_hour_saddr(categoryType):
+    query = {
+       "query": {
+            "range": {
+                "@timestamp": {
+                    "gte": "now-1h",
+                    "lt": "now"
                 }
             }
         },
+        "query":{
+            "bool":{
+                "must":{
+                    "match": {
+                        "category.keyword": categoryType
+                        }
+                },
+                "filter":[
+                    {"range": {
+                            "@timestamp": {
+                                "gte": "now-1h",
+                                "lt": "now"
+                            }
+                        }
+                    }
+                ],
+            },
+            
+        },
+        "aggs":{
+                "agg_name1":{
+                    "terms":{
+                        "field":"saddr.keyword"
+                    }
+                }
+            }
     }
-    aggregation_response =  client.search(index=es_index,body=aggregation_query)
-    aggregation_list = aggregation_response["aggregations"]["agg_name"]["buckets"]
-    return {"result":"success","aggregations":aggregation_list[:5]}
+    response =  client.search(index=es_index,body=query)
+    aggregation_list = response["aggregations"]["agg_name1"]["buckets"]
+    if(len(aggregation_list)==0):
+        return {"result":"empty","aggregations":aggregation_list}
+    else:
+        return {"result":"success","aggregations":aggregation_list}
+
+
+
+#Route For Getting The Top 5 Aggregation From Frontend and Getting Them Ready for The ML Script
+@app.route("/report/post/aggregations/<aggregationList>")
+def get_saddr_from_front(aggregationList):
+    return f"<p>{aggregationList}</p>"
+
+
 
 #Route For Bulk Adding csv file To ElasticSearch
 @app.route("/create")
