@@ -339,6 +339,7 @@ def search_latest_hour_saddr(categoryType):
 @app.route("/search/lasthour/<categoryType>")
 def search_last_hour_saddr(categoryType):
     query = {
+        "size":0,
         "query":{
             "bool":{
                 "must":{
