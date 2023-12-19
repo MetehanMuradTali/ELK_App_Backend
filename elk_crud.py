@@ -339,14 +339,6 @@ def search_latest_hour_saddr(categoryType):
 @app.route("/search/lasthour/<categoryType>")
 def search_last_hour_saddr(categoryType):
     query = {
-       "query": {
-            "range": {
-                "@timestamp": {
-                    "gte": "now-1h",
-                    "lt": "now"
-                }
-            }
-        },
         "query":{
             "bool":{
                 "must":{
