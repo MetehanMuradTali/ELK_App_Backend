@@ -379,6 +379,9 @@ def search_last_hour_saddr(categoryType):
 
 
 #Route For Bulk Adding csv file To ElasticSearch
+#!!!If You want to use this route to import csv to ElasticCloud you need to add  ".kewyord" to all of the Fields of Queries.
+# Example  | previous_field_name | new_field_name
+#          |        proto      |  proto.kewyord
 @app.route("/create")
 def bulk_add():
     with open("data_1.csv", 'r') as x:
@@ -543,3 +546,9 @@ def get_status_count():
     }
     response = client.count(index=es_index2, body=query)
     return {"result":"success","count":response["count"]}
+
+#For Server Shutdown
+@app.get('/shutdown')
+def shutdown():
+    print("Shutting down server...")
+    os._exit(0)
