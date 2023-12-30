@@ -10,7 +10,7 @@ import csv
 load_dotenv()
 CLOUD_ID = os.getenv("Cloud_ID")
 ELASTIC_PASSWORD = os.getenv("Elastic_Password")
-es_index1="datas"
+es_index1="datas_2"
 es_index2="ip_status"
 
 client = Elasticsearch(
@@ -41,7 +41,7 @@ def search_count():
         search_query = {
             "query": {
                 "prefix": {
-                    f"{column}": value
+                    f"{column}.keyword": value
                 }
             }
         }
@@ -50,7 +50,7 @@ def search_count():
         result = client.search(index=es_index1, size=1)
         # İlk belgeyi al ve içindeki alan isimlerini döndür
         fields = result["hits"]["hits"][0]["_source"].keys() if result["hits"]["hits"] else []
-        should_clauses = [{"prefix": {f"{field}": value}} for field in fields]
+        should_clauses = [{"prefix": {f"{field}.keyword": value}} for field in fields]
 
         search_query = {
             "query": {
@@ -79,7 +79,7 @@ def search_page():
 
     colLenght = len(column)
     valueLenght = len(value) 
-    sort =  [{"pkSeqID": "desc"}]   
+    sort =  [{"pkSeqID.keyword": "desc"}]   
 
     if(colLenght != 0 and valueLenght!=0):
         search_query = {
@@ -87,7 +87,7 @@ def search_page():
             "from":skipValues,
             "query": {
                 "prefix": {
-                    f"{column}": value
+                    f"{column}.keyword": value
                 }
             },
             "sort":sort
@@ -97,7 +97,7 @@ def search_page():
         result = client.search(index=es_index1, size=1)
         # İlk belgeyi al ve içindeki alan isimlerini döndür
         fields = result["hits"]["hits"][0]["_source"].keys() if result["hits"]["hits"] else []
-        should_clauses = [{"prefix": {f"{field}": value}} for field in fields]
+        should_clauses = [{"prefix": {f"{field}.keyword": value}} for field in fields]
 
         search_query = {
             "size": 10,
@@ -142,7 +142,7 @@ def search_aggregation_query():
     aggregation = {
             "agg_name": {
                 "terms": {
-                    "field": f"{sort}"
+                    "field": f"{sort}.keyword"
                 }
             }
     }
@@ -151,7 +151,7 @@ def search_aggregation_query():
             "size": 0,
             "query": {
                 "prefix": {
-                    f"{column}": value
+                    f"{column}.keyword": value
                 }
             },
             "aggs": aggregation
@@ -161,7 +161,7 @@ def search_aggregation_query():
         result = client.search(index=es_index1, size=1)
         # İlk belgeyi al ve içindeki alan isimlerini döndür
         fields = result["hits"]["hits"][0]["_source"].keys() if result["hits"]["hits"] else []
-        should_clauses = [{"prefix": {f"{field}": value}} for field in fields]
+        should_clauses = [{"prefix": {f"{field}.keyword": value}} for field in fields]
 
         aggregation_query = {
             "size": 0,
@@ -206,8 +206,8 @@ def get_saddr_from_query():
             "agg_name": {
                 "multi_terms":{
                     "terms":[ 
-                        {"field": "daddr"},
-                        {"field": "saddr"},
+                        {"field": "daddr.keyword"},
+                        {"field": "saddr.keyword"},
                     ]
                 }
             }
@@ -219,12 +219,12 @@ def get_saddr_from_query():
                     "must":[
                         {
                         "match": {
-                            f"{column}" : colValue
+                            f"{column}.keyword" : colValue
                             }
                         },
                         {
                         "match": {
-                            "category": categoryType
+                            "category.keyword": categoryType
                             }
                         }
                     ]
@@ -238,14 +238,14 @@ def get_saddr_from_query():
         result = client.search(index=es_index1, size=1)
         # İlk belgeyi al ve içindeki alan isimlerini döndür
         fields = result["hits"]["hits"][0]["_source"].keys() if result["hits"]["hits"] else []
-        should_clauses = [{"prefix": {f"{field}": colValue}} for field in fields]
+        should_clauses = [{"prefix": {f"{field}.keyword": colValue}} for field in fields]
 
         aggregation_query = {
             "size": 0,
             "query": {
                 "bool": {
                     "must": [
-                        {"match": {"category": categoryType}},
+                        {"match": {"category.keyword": categoryType}},
                         {"bool": {"should": should_clauses, "minimum_should_match": 1}}
                     ]
                 }
@@ -258,7 +258,7 @@ def get_saddr_from_query():
             "query": {
                 "bool": {
                     "must":{
-                        "match":{"category": categoryType}
+                        "match":{"category.keyword": categoryType}
                     }
                 }
             },
@@ -284,7 +284,7 @@ def search_latest_hour_saddr(categoryType):
         "size": 1,
         "sort": [
             {
-            "stime": {
+            "stime.keyword": {
                 "order": "desc"
             }
             }
@@ -302,12 +302,12 @@ def search_latest_hour_saddr(categoryType):
             "bool":{
                 "must":{
                     "match": {
-                        "category": categoryType
+                        "category.keyword": categoryType
                         }
                 },
                 "filter":[
                     {"range": {
-                        "stime": {
+                        "stime.keyword": {
                             "gte": greaterThenValue,
                             "lte": lesserThenValue
                             }
@@ -320,8 +320,8 @@ def search_latest_hour_saddr(categoryType):
                 "agg_name": {
                     "multi_terms":{
                         "terms":[ 
-                            {"field": "daddr"},
-                            {"field": "saddr"},
+                            {"field": "daddr.keyword"},
+                            {"field": "saddr.keyword"},
                         ]
                     }
                 }
@@ -344,7 +344,7 @@ def search_last_hour_saddr(categoryType):
             "bool":{
                 "must":{
                     "match": {
-                        "category": categoryType
+                        "category.keyword": categoryType
                         }
                 },
                 "filter":[
@@ -363,8 +363,8 @@ def search_last_hour_saddr(categoryType):
                 "agg_name": {
                     "multi_terms":{
                         "terms":[ 
-                            {"field": "daddr"},
-                            {"field": "saddr"},
+                            {"field": "daddr.keyword"},
+                            {"field": "saddr.keyword"},
                         ]
                     }
                 }
@@ -477,11 +477,11 @@ def get_address_status():
     skipValues=pageNumber*10-10
     should_clauses = []
     if len(SourceAddress)!=0:
-        should_clauses.append({"prefix": {"saddr": SourceAddress}})
+        should_clauses.append({"prefix": {"saddr.keyword": SourceAddress}})
     if len(DestinationAddress)!=0:
-        should_clauses.append({"prefix": {"daddr": DestinationAddress}})
+        should_clauses.append({"prefix": {"daddr.keyword": DestinationAddress}})
     if len(Status)!=0:
-        should_clauses.append({"prefix": {"status": Status}})
+        should_clauses.append({"prefix": {"status.keyword": Status}})
 
 
     if(len(SourceAddress)==0 and len(DestinationAddress)==0 and len(Status)==0 ):
@@ -501,7 +501,7 @@ def get_address_status():
             }
         },
         "sort": [
-            {"saddr": "desc"},
+            {"saddr.keyword": "desc"},
         ]
     }
     response = client.search(index=es_index2, body=query)
@@ -523,11 +523,11 @@ def get_status_count():
     should_clauses = []
     must_clauses = []
     if len(SourceAddress)!=0:
-        should_clauses.append({"prefix": {"saddr": SourceAddress}})
+        should_clauses.append({"prefix": {"saddr.keyword": SourceAddress}})
     if len(DestinationAddress)!=0:
-        should_clauses.append({"prefix": {"daddr": DestinationAddress}})
+        should_clauses.append({"prefix": {"daddr.keyword": DestinationAddress}})
     if len(Status)!=0:
-        should_clauses.append({"prefix": {"status": Status}})
+        should_clauses.append({"prefix": {"status.keyword": Status}})
 
     if(len(SourceAddress)==0 and len(DestinationAddress)==0 and len(Status)==0 ):
         should_clauses.append({"match_all": {}})
